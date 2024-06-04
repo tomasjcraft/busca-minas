@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buscaminas</title>
+  <style>
+    .board {
+      display: inline-block;
+      border-collapse: collapse;
+    }
+    .cell {
+      width: 20px;
+      height: 20px;
+      border: 1px solid #000;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      background-color: #bbb;
+    }
+    .cell.open {
+      background-color: #e0e0e0;
+      cursor: default;
+    }
+    .cell.mine {
+      background-color: red;
+      color: white;
+    }
+    .cell.flag {
+      background-color: yellow;
+    }
+    .cell.num-1 { color: blue; }
+    .cell.num-2 { color: green; }
+    .cell.num-3 { color: red; }
+    .cell.num-4 { color: navy; }
+    .cell.num-5 { color: maroon; }
+    .cell.num-6 { color: teal; }
+    .cell.num-7 { color: black; }
+    .cell.num-8 { color: gray; }
+  </style>
+</head>
+<body>
+  <div>
+    <label for="difficulty">Nivel de dificultad:</label>
+    <select id="difficulty" onchange="resetGame()">
+      <option value="easy">Fácil (8x8, 10 minas)</option>
+      <option value="medium">Medio (16x16, 40 minas)</option>
+      <option value="hard">Difícil (24x24, 99 minas)</option>
+    </select>
+  </div>
+  <div>
+    <span>Minas restantes: <span id="mines-count">0</span></span>
+    <span>Banderas colocadas: <span id="flags-count">0</span></span>
+  </div>
+  <button onclick="resetGame()">Reiniciar Juego</button>
+  <table class="board"></table>
+
+  <script>
+    let rows = 8;
+    let cols = 8;
+    let mines = 10;
+    let board = [];
+    let flagsPlaced = 0;
+
+    function setDifficulty() {
+      const difficulty = document.getElementById('difficulty').value;
+      if (difficulty === 'easy') {
+        rows = 8;
+        cols = 8;
+        mines = 10;
+      } else if (difficulty === 'medium') {
+        rows = 16;
+        cols = 16;
+        mines = 40;
+      } else if (difficulty === 'hard') {
+        rows = 24;
+        cols = 24;
+        mines = 99;
+      }
+    }
+
+    function updateCounters() {
+      document.getElementById('mines-count').textContent = mines;
+      document.getElementById('flags-count').textContent = flagsPlaced;
+    }
+
+    function createBoard() {
+      board = [];
+      flagsPlaced = 0;
+      updateCounters();
+      for (let i = 0; i < rows; i++) {
+        let row = [];
+        for (let j = 0; j < cols; j++) {
+          row.push({
+            isMine: false,
+            isOpen: false,
+            isFlagged: false,
+            value: 0
+          });
+        }
+        board.push(row);
+      }
+      placeMines();
+    }
+
+    function placeMines() {
+      let placedMines = 0;
+      while (placedMines < mines) {
+        let x = Math.floor(Math.random() * rows);
+        let y = Math.floor(Math.random() * cols);
+        if (!board[x][y].isMine) {
+          board[x][y].isMine = true;
+          incrementAdjacentCells(x, y);
+          placedMines++;
+        }
+      }
+      updateCounters();
+    }
+
+    function incrementAdjacentCells(x, y) {
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          let nx = x + dx;
+          let ny = y + dy;
+          if (nx >= 0 && nx < rows && ny >= 0 && ny < cols && !board[nx][ny].isMine) {
+            board[nx][ny].value++;
+          }
+        }
+      }
+    }
+
+    function renderBoard() {
+      const table = document.querySelector('.board');
+      table.innerHTML = '';
+      for (let i = 0; i < rows; i++) {
+        let row = document.createElement('tr');
+        for (let j = 0; j < cols; j++) {
+          let cell = document.createElement('td');
+          cell.classList.add('cell');
+          if (board[i][j].isOpen) {
+            cell.classList.add('open');
+            if (board[i][j].isMine) {
+              cell.classList.add('mine');
+              cell.innerHTML = '<img src="bomb.png" alt="Bomb" width="16" height="16">';
+            } else {
+              cell.textContent = board[i][j].value === 0 ? '' : board[i][j].value;
+              if (board[i][j].value > 0) {
+                cell.classList.add(`num-${board[i][j].value}`);
+              }
+            }
+          } else if (board[i][j].isFlagged) {
+            cell.classList.add('flag');
+            cell.textContent = '⚑';
+          }
+          cell.addEventListener('click', () => openCell(i, j));
+          cell.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            toggleFlag(i, j);
+          });
+          row.appendChild(cell);
+        }
+        table.appendChild(row);
+      }
+    }
+
+    function openCell(x, y) {
+      if (board[x][y].isOpen || board[x][y].isFlagged) return;
+      board[x][y].isOpen = true;
+      if (board[x][y].isMine) {
+        alert('¡Perdiste!');
+        revealMines();
+      } else if (board[x][y].value === 0) {
+        openAdjacentCells(x, y);
+      }
+      renderBoard();
+    }
+
+    function openAdjacentCells(x, y) {
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          let nx = x + dx;
+          let ny = y + dy;
+          if (nx >= 0 && nx < rows && ny >= 0 && ny < cols && !board[nx][ny].isOpen) {
+            openCell(nx, ny);
+          }
+        }
+      }
+    }
+
+    function revealMines() {
+      for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < cols; j++) {
+          if (board[i][j].isMine) {
+            board[i][j].isOpen = true;
+          }
+        }
+      }
+      renderBoard();
+    }
+
+    function toggleFlag(x, y) {
+      if (board[x][y].isOpen) return;
+      if (board[x][y].isFlagged) {
+        board[x][y].isFlagged = false;
+        flagsPlaced--;
+      } else if (flagsPlaced < mines) {
+        board[x][y].isFlagged = true;
+        flagsPlaced++;
+      }
+      updateCounters();
+      renderBoard();
+    }
+
+    function resetGame() {
+      setDifficulty();
+      createBoard();
+      renderBoard();
+    }
+
+    // Inicializar el juego al cargar la página
+    resetGame();
+  </script>
+</body>
+</html>
